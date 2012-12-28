@@ -13,7 +13,7 @@ Eventually, we decided to extract the barrier implementations from our simulator
 Performance
 ===========
 
-In the project wiki, you can find the results of a performance study with jbarrier.
+You can find the results of a performance study with jbarrier [here](https://github.com/peschlowp/jbarrier/wiki/Performance).
 
 Usage
 =====
