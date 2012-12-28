@@ -1,0 +1,188 @@
+<project name="jbarrier" default="release" basedir=".">
+	
+    <description>
+        Build file for the jbarrier library.
+    </description>
+	
+	<!-- general information -->
+    <property name="name" value="jbarrier"/>
+    <property name="version" value="1.0"/>
+    <property name="year" value="2012"/>
+    <property name="author" value="Patrick Peschlow"/>
+
+	<!-- source folders -->
+    <property name="src" value="src"/>
+    <property name="barrier_src" value="peschlowp/jbarrier/barrier"/>
+    <property name="generator_src" value="peschlowp/jbarrier/template"/>
+    
+	<!-- primitive type used to generate the templates -->
+    <property name="generator_type" value="Float"/>
+	
+	<!-- output folders -->
+    <property name="lib" value="lib"/>
+    <property name="output_root" value="output"/>
+    <property name="output_classes" value="${output_root}/classes"/>
+    <property name="output_generator_classes" value="${output_root}/generator_classes"/>
+    <property name="output_generated_src" value="${output_root}/generated_src"/>
+    <property name="output_lib" value="${output_root}/lib"/>
+    <property name="output_docs" value="${output_root}/doc"/>
+    <property name="dist_root" value="${output_root}/dist"/>
+    <property name="dist_dir" value="${dist_root}/${name}-${version}"/>
+    	
+    <!-- Default target. Build a complete release. -->
+    <target name="release">
+        <antcall target="clean"/>
+        <antcall target="dist"/>
+        <tar tarfile="${name}-${version}.tar" basedir="${dist_root}"/>
+        <gzip src="${name}-${version}.tar" 
+            zipfile="${dist_root}/${name}-${version}.tar.gz" />
+        <delete file="${name}-${version}.tar" />
+    </target>
+    
+    <!-- Clean all previous output. -->
+    <target name="clean">
+        <delete dir="${output_root}"/>
+    </target>
+    
+    <!-- Creates the distribution including javadoc. -->
+    <target name="dist" depends="jar,jarsrc,javadoc">
+        <mkdir dir="${dist_root}"/>
+        <mkdir dir="${dist_dir}"/>
+        <mkdir dir="${dist_dir}/src"/>
+        
+        <copy todir="${dist_dir}/src">
+            <fileset dir="${src}"/>
+        </copy>
+        
+        <copy todir="${dist_dir}">
+            <fileset dir="${output_root}" includes="lib/**,doc/**" />
+        </copy>
+        
+        <copy todir="${dist_dir}" file="README.txt"/>
+        <copy todir="${dist_dir}" file="build.xml"/>
+    </target>
+    
+    <!-- Build the main jar. -->
+    <target name="jar" depends="compile">
+        <jar destfile="${output_lib}/${name}-${version}.jar">
+            <fileset dir="${output_classes}">
+            	<exclude name="peschlowp/jbarrier/template/**"/>
+            </fileset>
+            <manifest>
+                <attribute name="Built-By" value="${user.name}"/>
+                <attribute name="Implementation-Title" value="${name}"/>
+                <attribute name="Implementation-Version" value="${version}"/>
+                <attribute name="Implementation-URL" value="http://github.com/peschlowp/jbarrier"/>
+                <attribute name="Sealed" value="false"/>
+            </manifest>
+        </jar>
+    </target>
+
+    <!-- Build the source jar. -->
+    <target name="jarsrc" depends="compile">
+        <jar destfile="${output_lib}/${name}-src-${version}.jar">
+            <fileset dir="${src}">
+            	<exclude name="peschlowp/jbarrier/template/**"/>
+            </fileset>
+            <fileset dir="${output_generated_src}"/>
+            <manifest>
+                <attribute name="Built-By" value="${user.name}"/>
+                <attribute name="Implementation-Title" value="${name}"/>
+                <attribute name="Implementation-Version" value="${version}"/>
+            	<attribute name="Implementation-URL" value="http://github.com/peschlowp/jbarrier"/>
+                <attribute name="Sealed" value="false"/>
+            </manifest>
+        </jar>
+    </target>
+	
+    <!-- Create the javadocs. -->
+    <target name="javadoc" depends="compile">
+        <mkdir dir="${output_docs}"/>
+        <javadoc destdir="${output_docs}"
+            packagenames="peschlowp.jbarrier.*"
+            author="true"
+            version="true"
+            use="true"
+            splitindex="true"
+            noindex="false"
+            windowtitle="${name} v${version}"
+            doctitle="${name} v${version}"
+            header="&lt;a href=&quot;http://github.com/peschlowp/jbarrier&quot;>jbarrier&lt;/a>"
+            bottom="Copyright ${year} ${author}">
+            <fileset dir="${src}">
+                <exclude name="**/*.html"/>
+                <exclude name="peschlowp/jbarrier/template/**"/>
+            </fileset>
+            <fileset dir="${output_generated_src}">
+                <exclude name="**/*.html"/>
+            </fileset>
+        </javadoc>
+    </target>
+	
+    <!-- Compile the source directory. -->
+    <target name="compile" depends="generate">
+        <javac destdir="${output_classes}"
+               defaultexcludes="yes"
+               includeAntRuntime="false"
+               debug="on"
+               source="1.6"
+               target="1.6"
+    	       listfiles="true">
+            <src path="${src}"/>
+            <src path="${output_generated_src}"/>
+            <exclude name="**/Float*.java"/>
+        </javac>
+    </target>
+	
+    <!-- Generate primitive type classes based on templates. -->
+    <target name="generate" depends="prepare_templates"
+        description="Generate classes based on templates">
+    	<java classname="peschlowp.jbarrier.template.GeneratePrimitiveTypeClasses">
+            <arg value="${src}/${generator_src}"/>
+            <arg value="${output_generated_src}/${barrier_src}"/>
+            <classpath>
+                <pathelement path="${output_generator_classes}"/>
+            </classpath>
+        </java>
+    </target>
+	
+    <!-- Build generator classes and update templates from sources. -->
+    <target name="prepare_templates" depends="init">
+        <javac srcdir="${src}/${generator_src}"
+               destdir="${output_generator_classes}"
+               defaultexcludes="yes"
+               includeAntRuntime="false"
+               debug="on"
+               source="1.6"
+               target="1.6"
+    	       listfiles="true"/>
+    	<java classname="peschlowp.jbarrier.template.GenerateTemplates">
+            <arg value="${src}/${barrier_src}"/>
+    	    <arg value="${src}/${generator_src}"/>
+            <arg value="${generator_type}"/>
+    	    <classpath>
+    	        <pathelement path="${output_generator_classes}"/>
+    	    </classpath>
+    	</java>
+        <copy todir="${output_generator_classes}">
+            <fileset dir="${src}">
+                <include name="${generator_src}/*.template"/>
+            </fileset>
+        </copy>
+    </target>
+	
+    <!-- Create output folders. -->
+    <target name="init">
+        <tstamp/>
+        <mkdir dir="${output_root}"/>
+        <mkdir dir="${output_generator_classes}"/>
+        <mkdir dir="${output_classes}"/>
+        <mkdir dir="${output_generated_src}"/>
+    	<mkdir dir="${output_generated_src}/peschlowp"/>
+        <mkdir dir="${output_generated_src}/peschlowp/jbarrier"/>
+    	<mkdir dir="${output_generated_src}/peschlowp/jbarrier/barrier"/>
+        <mkdir dir="${output_lib}"/>
+        <mkdir dir="${dist_root}"/>
+    </target>
+</project>
+
